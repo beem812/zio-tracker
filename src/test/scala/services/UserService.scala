@@ -11,6 +11,6 @@ object UserServiceSpec extends DefaultRunnableSpec {
       for {
         greeting      <- UserService.sayHello("dab")
       } yield assert(greeting)(equalTo("sup, dab"))
-    }.inject(UserService.live)
-  )
+    }
+  ).inject(UserService.live)
 }

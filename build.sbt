@@ -9,6 +9,7 @@ lazy val versions = new {
   val zioJson         = "0.1.5"
   val circeVersion    = "0.13.0"
   val sttpVersion     = "3.3.9"
+  val zioCacheVersion = "0.1.0"
 }
 
 lazy val root =
@@ -34,6 +35,7 @@ lazy val root =
         "io.getquill"                   %% "quill-jdbc-zio"                % "3.7.2",
         "io.getquill"                   %% "quill-core"                    % "3.7.2",
         "org.flywaydb"                  % "flyway-core"                    % "7.5.2",
+        "dev.zio"                       %% "zio-cache"                     % versions.zioCacheVersion,
         "dev.zio"                       %% "zio-test"                      % versions.zio % Test,
         "dev.zio"                       %% "zio-test-sbt"                  % versions.zio % Test,
         //In zio-test-intellij absence, you may get no logs on some failing tests when running tests with intellij

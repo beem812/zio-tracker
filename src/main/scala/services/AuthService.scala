@@ -8,35 +8,33 @@ import pdi.jwt.JwtOptions
 import sttp.client3._
 import util.AppConfig
 import zio._
-import zio.cache.Cache
+import dtos.TrackerUser
+import util.AccessTokenCache
 
 trait AuthService {
   def decodeJwt(token: String): ZIO[Any, Serializable, String]
-  def retrieveAuth0User(subject: String): Task[Auth0User]
+  def findOrCreateUser(auth0Id: String): Task[TrackerUser]
+  def authenticateUser(req: zhttp.http.Request): ZIO[Any, Serializable, TrackerUser]
 }
 
 object AuthService extends Accessible[AuthService] {
-  val live: URLayer[Has[HttpService] with Has[AppConfig] with Has[Cache[Map[String, String], Throwable, String]], Has[
-    AuthService
-  ]] =
-    AuthServiceLive.toLayer
+  val live =
+    AuthServiceLive.toLayer[AuthService]
 }
 
 case class AuthServiceLive(
+  userService: UserService,
   http: HttpService,
   config: AppConfig,
-  tokenCache: Cache[Map[String, String], Throwable, String]
+  tokenCache: AccessTokenCache
 ) extends AuthService {
 
-  val auth0Domain = config.auth0Config.domain
-  val secret      = config.auth0Config.clientSecret
-  val clientId    = config.auth0Config.clientId
-  val accessTokenRequestBody = Map[String, String](
-    "grant_type"    -> "client_credentials",
-    "client_id"     -> clientId,
-    "client_secret" -> secret,
-    "audience"      -> uri"https://$auth0Domain/api/v2/".toString()
-  )
+  def authenticateUser(req: zhttp.http.Request): ZIO[Any, Serializable, TrackerUser] =
+    for {
+      token       <- ZIO.fromOption(req.getBearerToken)
+      auth0UserId <- decodeJwt(token)
+      user        <- findOrCreateUser(auth0UserId)
+    } yield user
 
   def decodeJwt(token: String): ZIO[Any, Serializable, String] = {
     val tokenParts  = ZIO.fromTry(JwtCirce.decodeAll(token, JwtOptions(signature = false)))
@@ -50,9 +48,22 @@ case class AuthServiceLive(
     } yield subject
   }
 
-  def retrieveAuth0User(subject: String): Task[Auth0User] =
+  def findOrCreateUser(auth0Id: String) =
     for {
-      token <- tokenCache.get(accessTokenRequestBody)
+      userOption <- userService.getUserByAuth0Id(auth0Id)
+      user <- userOption match {
+               case Some(foundUser) => ZIO.succeed(foundUser)
+               case None =>
+                 for {
+                   auth0User <- retrieveAuth0User(auth0Id)
+                   newUser   <- userService.createUserFromAuth0User(auth0User)
+                 } yield newUser
+             }
+    } yield user
+
+  private def retrieveAuth0User(subject: String): Task[Auth0User] =
+    for {
+      token <- tokenCache.getToken
       auth0User <- http.get[Auth0User](
                     uri"https://$auth0Domain/api/v2/users/$subject",
                     Map(
@@ -60,4 +71,6 @@ case class AuthServiceLive(
                     )
                   )
     } yield auth0User
+
+  private val auth0Domain = config.auth0Config.domain
 }

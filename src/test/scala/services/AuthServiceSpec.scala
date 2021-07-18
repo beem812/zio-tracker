@@ -3,33 +3,45 @@ package services
 import zio.magic._
 import zio.test.Assertion._
 import zio.test._
-import dtos.Auth0User
 import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import util.Config
 import util.AccessTokenCache
+import util.Db
+import repos.UserRepo
+import dtos.Auth0User
+import zio._
+import zio.json._
+import sttp.client3.asynchttpclient.zio.SttpClient
+import java.time.LocalDateTime
 
 object AuthServiceSpec extends DefaultRunnableSpec {
+  val stubSttp: ULayer[SttpClient] =
+    ZLayer.succeed(
+      AsyncHttpClientZioBackend.stub.whenAnyRequest
+        .thenRespond(Auth0User(LocalDateTime.now().toString(), "testuser@test", "google-oauth2|fake").toJson)
+    )
+
   def spec =
     suite("AuthServiceSpec")(
       testM("decode jwt correctly returns subject") {
 
+        val testId = "google-oauth2|fake"
         for {
-          // subject <- AuthService(
-          //             _.decodeJwt(
-          //             )
-          //           )
-          resp <- AuthService(_.retrieveAuth0User("google-oauth2|114205758083895850940"))
+          _    <- Db(_.initialize)
+          resp <- AuthService(_.findOrCreateUser(testId))
         } yield assert(resp)(
-          equalTo(
-            Auth0User("2021-04-23T14:47:31.182Z", "beem132@gmail.com", "")
-          )
+          hasField("auth0Id", _.auth0Id, equalTo(testId))
         )
       }
     ).inject(
+      Db.test,
+      Db.zioConnTest,
+      UserRepo.live,
+      UserService.live,
       HttpService.live,
-      Config.live.mapError(TestFailure.fail),
+      Config.live.orDie,
+      stubSttp,
       AuthService.live,
-      AsyncHttpClientZioBackend.layer().mapError(TestFailure.fail),
-      AccessTokenCache.accessTokenCacheLive
+      AccessTokenCache.test
     )
 }

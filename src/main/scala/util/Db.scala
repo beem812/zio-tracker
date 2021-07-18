@@ -9,6 +9,7 @@ import zio._
 import org.flywaydb.core.api.output.MigrateResult
 import io.getquill.util.LoadConfig
 import com.zaxxer.hikari.HikariDataSource
+import zio.test.TestFailure
 
 trait Db {
   def initialize: IO[Throwable, MigrateResult]
@@ -24,10 +25,14 @@ object Db extends Accessible[Db] {
   def zioConn =
     Blocking.live >>> ZioJdbc.QDataSource.fromPrefix("h2DbConfig") >>> ZioJdbc.QDataSource.toConnection
 
-  def live: URLayer[Has[HikariDataSource], Has[Db]] = DbLive.toLayer
+  def zioConnTest =
+    (Blocking.live >>> ZioJdbc.QDataSource.fromPrefix("h2DbConfig") >>> ZioJdbc.QDataSource.toConnection)
+      .mapError(TestFailure.fail)
 
-  def initialize = ZIO.serviceWith[Db](_.initialize)
+  def live: ZLayer[Any, Throwable, Has[Db]] = dataSourceLayer >>> DbLive.toLayer[Db]
 
+  def test: ZLayer[Any, TestFailure[Throwable], Has[Db]] =
+    (dataSourceLayer >>> DbLive.toLayer[Db]).mapError(TestFailure.fail)
 }
 
 case class DbLive(dataSource: HikariDataSource) extends Db {

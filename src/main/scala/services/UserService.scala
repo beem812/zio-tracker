@@ -1,27 +1,31 @@
 package services
 import zio._
-import util.Db
-import dtos.TrackerUser
-import io.getquill.context.ZioJdbc
-import java.sql.Connection
-import zio.blocking.Blocking
+import dtos._
+import repos.UserRepo
 
 trait UserService {
-  def sayHello(name: String): UIO[String]
   def getUsers: Task[List[TrackerUser]]
+  def getUserById(id: String): Task[Option[TrackerUser]]
+  def getUserByAuth0Id(auth0Id: String): Task[Option[TrackerUser]]
+  def createUserFromAuth0User(auth0User: Auth0User): Task[TrackerUser]
 }
 
 object UserService extends Accessible[UserService] {
-  val live: URLayer[ZioJdbc.QConnection, Has[UserService]] = UserServiceLive.toLayer
-  def sayHello(name: String)                               = ZIO.serviceWith[UserService](_.sayHello(name))
+  val live = UserServiceLive.toLayer[UserService]
 }
 
-case class UserServiceLive(conn: Connection, blocking: Blocking.Service) extends UserService {
-  import Db.ctx._
-  private val quillEnv = Has.allOf(blocking, conn)
+case class UserServiceLive(userRepo: UserRepo) extends UserService {
 
-  override def sayHello(name: String): UIO[String] = UIO(s"sup, $name")
+  override def getUsers: Task[List[TrackerUser]] = userRepo.getUsers
 
-  override def getUsers: Task[List[TrackerUser]] =
-    run(quote(query[TrackerUser])).provide(quillEnv)
+  override def getUserById(id: String): Task[Option[TrackerUser]] =
+    userRepo.getUserById(id)
+
+  override def getUserByAuth0Id(auth0Id: String): Task[Option[TrackerUser]] =
+    userRepo.getUserByAuth0Id(auth0Id)
+
+  override def createUserFromAuth0User(auth0User: Auth0User): Task[TrackerUser] = {
+    val newTrackerUser = TrackerUser("", auth0User.email, auth0User.userId)
+    userRepo.insertUser(newTrackerUser)
+  }
 }

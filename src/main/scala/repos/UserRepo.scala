@@ -5,16 +5,17 @@ import dtos.TrackerUser
 import java.sql.Connection
 import zio.blocking.Blocking
 import zio._
+import java.util.UUID
 
 trait UserRepo {
   def getUsers: Task[List[TrackerUser]]
-  def getUserById(id: String): Task[Option[TrackerUser]]
+  def getUserById(id: UUID): Task[Option[TrackerUser]]
   def getUserByAuth0Id(auth0Id: String): Task[Option[TrackerUser]]
   def insertUser(user: TrackerUser): Task[TrackerUser]
 }
 
 object UserRepo {
-  val live: URLayer[Has[Connection] with Has[Blocking.Service], Has[UserRepo]] = UserRepoLive.toLayer[UserRepo]
+  val live: URLayer[Has[Connection] with Blocking, Has[UserRepo]] = UserRepoLive.toLayer[UserRepo]
 }
 
 case class UserRepoLive(conn: Connection, blocking: Blocking.Service) extends UserRepo {
@@ -26,7 +27,7 @@ case class UserRepoLive(conn: Connection, blocking: Blocking.Service) extends Us
       query[TrackerUser]
     }).provide(quillEnv)
 
-  def getUserById(id: String): Task[Option[TrackerUser]] =
+  def getUserById(id: UUID): Task[Option[TrackerUser]] =
     run(quote(query[TrackerUser].filter(user => user.id == lift(id)).take(1)))
       .map(users => users.headOption)
       .provide(quillEnv)

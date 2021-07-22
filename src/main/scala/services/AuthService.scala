@@ -29,7 +29,7 @@ case class AuthServiceLive(
   tokenCache: AccessTokenCache
 ) extends AuthService {
 
-  def authenticateUser(req: zhttp.http.Request): ZIO[Any, Serializable, TrackerUser] =
+  def authenticateUser(req: ZRequest): ZIO[Any, Serializable, TrackerUser] =
     for {
       token       <- ZIO.fromOption(req.getBearerToken)
       auth0UserId <- decodeJwt(token)

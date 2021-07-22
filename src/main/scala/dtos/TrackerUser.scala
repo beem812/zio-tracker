@@ -1,8 +1,9 @@
 package dtos
 
 import zio.json._
+import java.util.UUID
 
-case class TrackerUser(id: String, email: String, auth0Id: String)
+case class TrackerUser(id: UUID, email: String, auth0Id: String)
 
 object TrackerUser {
   implicit val decoder: JsonDecoder[TrackerUser] = DeriveJsonDecoder.gen[TrackerUser]

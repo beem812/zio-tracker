@@ -4,9 +4,7 @@ import zio.magic._
 import zio.test.Assertion._
 import zio.test._
 import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
-import util.Config
-import util.AccessTokenCache
-import util.Db
+import util._
 import repos.UserRepo
 import dtos.Auth0User
 import zio._

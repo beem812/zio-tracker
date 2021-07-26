@@ -18,7 +18,6 @@ case class TradeServiceLive(tradeRepo: TradeRepo) extends TradeService {
 
   override def insertTrade(user: TrackerUser, newTrade: NewTrade): Task[Trade] = {
     val trade: Trade = newTrade.toTrade(user.id)
-
     tradeRepo.insertTrade(trade)
   }
 

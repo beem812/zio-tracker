@@ -25,8 +25,6 @@ case class UserServiceLive(userRepo: UserRepo) extends UserService {
   override def getUserByAuth0Id(auth0Id: String): Task[Option[TrackerUser]] =
     userRepo.getUserByAuth0Id(auth0Id)
 
-  override def createUserFromAuth0User(auth0User: Auth0User): Task[TrackerUser] = {
-    val newTrackerUser = TrackerUser(UUID.randomUUID(), auth0User.email, auth0User.userId)
-    userRepo.insertUser(newTrackerUser)
-  }
+  override def createUserFromAuth0User(auth0User: Auth0User): Task[TrackerUser] =
+    userRepo.insertUser(auth0User.toTrackerUser)
 }

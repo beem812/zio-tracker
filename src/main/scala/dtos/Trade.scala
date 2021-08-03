@@ -50,6 +50,14 @@ object Trade {
 }
 
 object NewTrade {
+  val genNewTrade =
+    for {
+      ticker        <- Gen.elements("AAPL", "MSFT", "GOOG")
+      action        <- Gen.elements("buyToClose", "sellToOpen")
+      pricePerShare <- Gen.bigDecimal(BigDecimal(0), BigDecimal(10000.0))
+      shares        <- Gen.int(0, 100000000)
+      creditDebit   <- Gen.elements("Credit", "Debit")
+    } yield NewTrade(ticker, action, LocalDateTime.now(), pricePerShare, shares, creditDebit)
   implicit val decoder: JsonDecoder[NewTrade] = DeriveJsonDecoder.gen[NewTrade]
   implicit val encoder: JsonEncoder[NewTrade] = DeriveJsonEncoder.gen[NewTrade]
 }
